@@ -1,12 +1,12 @@
 {
-  "name": "driver-template",
-  "displayName": "Driver Template",
-  "description": "Driver Template to be used as base for new VSCode SQLTools drivers",
-  "version": "0.0.1",
+  "name": "sqltools-redshift-driver",
+  "displayName": "Redshift Driver",
+  "description": "Redshift Driver for VSCode SQLTools extention",
+  "version": "0.0.2",
   "engines": {
     "vscode": "^1.42.0"
   },
-  "publisher": "mtxr",
+  "publisher": "kj",
   "license": "MIT",
   "repository": {},
   "bugs": {},
@@ -16,8 +16,9 @@
     "watch": "tsc -watch -p ./"
   },
   "keywords": [
-    "driver-template",
-    "sqltools-driver"
+    "sqltools-driver",
+    "redshift",
+    "aws redshift"
   ],
   "categories": [
     "Programming Languages",
@@ -37,11 +38,13 @@
   "dependencies": {
     "@sqltools/base-driver": "latest",
     "@sqltools/types": "latest",
+    "pg": "^8.5.1",
     "uuid": "^7.0.2"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.5.5",
     "@types/node": "^14.0.9",
+    "@types/pg": "^7.14.11",
     "@types/vscode": "^1.42.0",
     "typescript": "^3.7.3"
   }

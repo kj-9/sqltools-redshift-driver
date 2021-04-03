@@ -53,6 +53,31 @@ export async function activate(extContext: ExtensionContext): Promise<IDriverExt
       //     connInfo.database = `\$\{workspaceFolder:${dbWorkspace.name}\}/${workspace.asRelativePath(connInfo.database, false)}`;
       //   }
       // }
+      const propsToRemove = ['connectionMethod', 'id', 'usePassword'];
+      if (connInfo.usePassword) {
+        if (connInfo.usePassword.toString().toLowerCase().includes('ask')) {
+          propsToRemove.push('password');
+        } else if (connInfo.usePassword.toString().toLowerCase().includes('empty')) {
+          connInfo.password = '';
+          propsToRemove.push('askForPassword');
+        } else if (connInfo.usePassword.toString().toLowerCase().includes('save')) {
+          propsToRemove.push('askForPassword');
+        }
+      }
+      propsToRemove.forEach(p => delete connInfo[p]);
+      connInfo.pgOptions = connInfo.pgOptions || {};
+      if (connInfo.pgOptions.enableSsl === 'Enabled') {
+        if (typeof connInfo.pgOptions.ssl === 'object' && Object.keys(connInfo.pgOptions.ssl).length === 0) {
+          connInfo.pgOptions.ssl = true;
+        }
+      } else if (connInfo.pgOptions.enableSsl === 'Disabled') {
+        delete connInfo.pgOptions.ssl
+      }
+      delete connInfo.pgOptions.enableSsl;
+      if (Object.keys(connInfo.pgOptions).length === 0) {
+        delete connInfo.pgOptions;
+      }
+
       return connInfo;
     },
     parseBeforeEditConnection: ({ connInfo }) => {
@@ -69,10 +94,39 @@ export async function activate(extContext: ExtensionContext): Promise<IDriverExt
       //   if (dbWorkspace)
       //     connInfo.database = path.resolve(dbWorkspace.uri.fsPath, connInfo.database.replace(/\$\{workspaceFolder:(.+)}/g, './'));
       // }
-      return connInfo;
+      const formData: typeof connInfo = {
+        ...connInfo,
+        connectionMethod: 'Server and Port',
+      };
+      if (connInfo.socketPath) {
+        formData.connectionMethod = 'Socket File';
+      } else if (connInfo.connectString) {
+        formData.connectionMethod = 'Connection String';
+      }
+
+      if (connInfo.askForPassword) {
+        formData.usePassword = 'Ask on connect';
+        delete formData.password;
+      } else if (typeof connInfo.password === 'string') {
+        delete formData.askForPassword;
+        formData.usePassword = connInfo.password ? 'Save password' : 'Use empty password';
+      }
+
+      formData.pgOptions = formData.pgOptions || {};
+      if (formData.pgOptions.ssl) {
+        formData.pgOptions.enableSsl = 'Enabled';
+        if (typeof formData.pgOptions.ssl === 'boolean') {
+          formData.pgOptions.ssl = {};
+        }
+      } else {
+        formData.pgOptions.enableSsl = 'Disabled';
+      }
+
+      return formData;
+
     },
     driverAliases: DRIVER_ALIASES,
   };
 }
 
-export function deactivate() {}
+export function deactivate() { }

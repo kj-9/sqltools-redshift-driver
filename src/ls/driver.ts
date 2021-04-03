@@ -1,318 +1,238 @@
-import AbstractDriver from '@sqltools/base-driver';
-import queries from './queries';
-import { IConnectionDriver, MConnectionExplorer, NSDatabase, ContextValue, Arg0 } from '@sqltools/types';
+import fs from 'fs';
+import zipObject from 'lodash/zipObject';
+import { Pool, PoolConfig, PoolClient, types, FieldDef } from 'pg';
 import { v4 as generateId } from 'uuid';
+import AbstractDriver from '@sqltools/base-driver';
+import { IConnectionDriver, MConnectionExplorer, NSDatabase, ContextValue, Arg0 } from '@sqltools/types';
 
-/**
- * set Driver lib to the type of your connection.
- * Eg for postgres:
- * import { Pool, PoolConfig } from 'pg';
- * ...
- * type DriverLib = Pool;
- * type DriverOptions = PoolConfig;
- *
- * This will give you completions iside of the library
- */
-type DriverLib = typeof fakeDbLib;
-type DriverOptions = any;
+import parse from './parser';
+import queries from './queries';
 
-/**
- * MOCKED DB DRIVER
- * THIS IS JUST AN EXAMPLE AND THE LINES BELOW SHOUDL BE REMOVED!
- */
-// import fakeDbLib from './mylib'; // this is what you should do
-const fakeDbLib = {
-  open: () => Promise.resolve(fakeDbLib),
-  query: (..._args: any[]) => {
-    const nResults = parseInt((Math.random() * 1000).toFixed(0));
-    const nCols = parseInt((Math.random() * 100).toFixed(0));
-    const colNames = [...new Array(nCols)].map((_, index) => `col${index}`);
-    const generateRow = () => {
-      const row = {};
-      colNames.forEach(c => {
-        row[c] = Math.random() * 1000;
-      });
-      return row;
-    }
-    const results = [...new Array(nResults)].map(generateRow);
-    return Promise.resolve([results]);
-  },
-  close: () => Promise.resolve(),
-};
+const rawValue = (v: string) => v;
 
+types.setTypeParser((types as any).builtins.TIMESTAMP || 1114, rawValue);
+types.setTypeParser((types as any).builtins.TIMESTAMPTZ || 1184, rawValue);
+types.setTypeParser((types as any).builtins.DATE || 1082, rawValue);
 
-/* LINES ABOVE CAN BE REMOVED */
-
-
-export default class YourDriverClass extends AbstractDriver<DriverLib, DriverOptions> implements IConnectionDriver {
-
-  /**
-   * If you driver depends on node packages, list it below on `deps` prop.
-   * It will be installed automatically on first use of your driver.
-   */
-  public readonly deps: typeof AbstractDriver.prototype['deps'] = [{
-    type: AbstractDriver.CONSTANTS.DEPENDENCY_PACKAGE,
-    name: 'lodash',
-    // version: 'x.x.x',
-  }];
-
-
+export default class PostgreSQL extends AbstractDriver<Pool, PoolConfig> implements IConnectionDriver {
   queries = queries;
-
-  /** if you need to require your lib in runtime and then
-   * use `this.lib.methodName()` anywhere and vscode will take care of the dependencies
-   * to be installed on a cache folder
-   **/
-  // private get lib() {
-  //   return this.requireDep('node-packge-name') as DriverLib;
-  // }
-
   public async open() {
     if (this.connection) {
       return this.connection;
     }
+    try {
+      const { ssl, ...pgOptions }: PoolConfig = this.credentials.pgOptions || {};
 
-    this.needToInstallDependencies && await this.needToInstallDependencies();
-    /**
-     * open your connection here!!!
-     */
+      let poolConfig: PoolConfig = {
+        connectionTimeoutMillis: Number(`${this.credentials.connectionTimeout || 0}`) * 1000,
+        ...pgOptions,
+      };
 
-    this.connection = fakeDbLib.open();
-    return this.connection;
+      if (this.credentials.connectString) {
+        poolConfig = {
+          connectionString: this.credentials.connectString,
+          ...poolConfig,
+        }
+      } else {
+        poolConfig = {
+          database: this.credentials.database,
+          host: this.credentials.server,
+          password: this.credentials.password,
+          port: this.credentials.port,
+          user: this.credentials.username,
+          ...poolConfig,
+        };
+      }
+      if (ssl) {
+        if (typeof ssl === 'object') {
+          const useSsl = {
+            ...ssl,
+          };
+          ['ca', 'key', 'cert', 'pfx'].forEach(key => {
+            if (!useSsl[key]) {
+              delete useSsl[key];
+              return;
+            };
+            this.log.info(`Reading file ${useSsl[key].replace(/^file:\/\//, '')}`)
+            useSsl[key] = fs.readFileSync(useSsl[key].replace(/^file:\/\//, '')).toString();
+          });
+          if (Object.keys(useSsl).length > 0) {
+            poolConfig.ssl = useSsl;
+          }
+        } else {
+          poolConfig.ssl = ssl || false;
+        }
+      }
+
+      const pool = new Pool(poolConfig);
+      const cli = await pool.connect();
+      cli.release();
+      this.connection = Promise.resolve(pool);
+      return this.connection;
+    } catch (error) {
+      return Promise.reject(error);
+    }
   }
 
   public async close() {
     if (!this.connection) return Promise.resolve();
-    /**
-     * cose you connection here!!
-     */
-    await fakeDbLib.close();
+    const pool = await this.connection;
     this.connection = null;
+    pool.end();
   }
 
-  public query: (typeof AbstractDriver)['prototype']['query'] = async (queries, opt = {}) => {
-    const db = await this.open();
-    const queriesResults = await db.query(queries);
-    const resultsAgg: NSDatabase.IResult[] = [];
-    queriesResults.forEach(queryResult => {
-      resultsAgg.push({
-        cols: Object.keys(queryResult[0]),
-        connId: this.getId(),
-        messages: [{ date: new Date(), message: `Query ok with ${queriesResults.length} results`}],
-        results: queryResult,
-        query: queries.toString(),
-        requestId: opt.requestId,
-        resultId: generateId(),
+  public query: (typeof AbstractDriver)['prototype']['query'] = (query, opt = {}) => {
+    const messages = [];
+    let cli: PoolClient;
+    const { requestId } = opt;
+    return this.open()
+      .then(async (pool) => {
+        cli = await pool.connect();
+        cli.on('notice', notice => messages.push(this.prepareMessage(`${notice.name.toUpperCase()}: ${notice.message}`)));
+        const results = await cli.query({ text: query.toString(), rowMode: 'array' });
+        cli.release();
+        return results;
+      })
+      .then((results: any[] | any) => {
+        const queries = parse(query.toString(), 'pg');
+        if (!Array.isArray(results)) {
+          results = [results];
+        }
+
+        return results.map((r, i): NSDatabase.IResult => {
+          const cols = this.getColumnNames(r.fields || []);
+          return {
+            requestId,
+            resultId: generateId(),
+            connId: this.getId(),
+            cols,
+            messages: messages.concat([
+              this.prepareMessage(`${r.command} successfully executed.${r.command.toLowerCase() !== 'select' && typeof r.rowCount === 'number' ? ` ${r.rowCount} rows were affected.` : ''
+                }`)
+            ]),
+            query: queries[i],
+            results: this.mapRows(r.rows, cols),
+          };
+        });
+      })
+      .catch(err => {
+        cli && cli.release();
+        return [<NSDatabase.IResult>{
+          connId: this.getId(),
+          requestId,
+          resultId: generateId(),
+          cols: [],
+          messages: messages.concat([
+            this.prepareMessage([
+              (err && err.message || err),
+              err && err.routine === 'scanner_yyerror' && err.position ? `at character ${err.position}` : undefined
+            ].filter(Boolean).join(' '))
+          ]),
+          error: true,
+          rawError: err,
+          query,
+          results: [],
+        }];
       });
-    });
-    /**
-     * write the method to execute queries here!!
-     */
-    return resultsAgg;
   }
 
-  /** if you need a different way to test your connection, you can set it here.
-   * Otherwise by default we open and close the connection only
-   */
+  private getColumnNames(fields: FieldDef[]): string[] {
+    return fields.reduce((names, { name }) => {
+      const count = names.filter((n) => n === name).length;
+      return names.concat(count > 0 ? `${name} (${count})` : name);
+    }, []);
+  }
+
+  private mapRows(rows: any[], columns: string[]): any[] {
+    return rows.map((r) => zipObject(columns, r));
+  }
+
+  private async getColumns(parent: NSDatabase.ITable): Promise<NSDatabase.IColumn[]> {
+    const results = await this.queryResults(this.queries.fetchColumns(parent));
+    return results.map(col => ({
+      ...col,
+      iconName: col.isPk ? 'pk' : (col.isFk ? 'fk' : null),
+      childType: ContextValue.NO_CHILD,
+      table: parent
+    }));
+  }
+
   public async testConnection() {
-    await this.open();
-    await this.query('SELECT 1', {});
+    const pool = await this.open()
+    const cli = await pool.connect();
+    await cli.query('SELECT 1');
+    cli.release();
   }
 
-  /**
-   * This method is a helper to generate the connection explorer tree.
-   * it gets the child items based on current item
-   */
   public async getChildrenForItem({ item, parent }: Arg0<IConnectionDriver['getChildrenForItem']>) {
     switch (item.type) {
       case ContextValue.CONNECTION:
       case ContextValue.CONNECTED_CONNECTION:
+        return this.queryResults(this.queries.fetchDatabases());
+      case ContextValue.TABLE:
+      case ContextValue.VIEW:
+      case ContextValue.MATERIALIZED_VIEW:
+        return this.getColumns(item as NSDatabase.ITable);
+      case ContextValue.DATABASE:
+        return <MConnectionExplorer.IChildItem[]>[
+          { label: 'Schemas', type: ContextValue.RESOURCE_GROUP, iconId: 'folder', childType: ContextValue.SCHEMA },
+        ];
+      case ContextValue.RESOURCE_GROUP:
+        return this.getChildrenForGroup({ item, parent });
+      case ContextValue.SCHEMA:
         return <MConnectionExplorer.IChildItem[]>[
           { label: 'Tables', type: ContextValue.RESOURCE_GROUP, iconId: 'folder', childType: ContextValue.TABLE },
           { label: 'Views', type: ContextValue.RESOURCE_GROUP, iconId: 'folder', childType: ContextValue.VIEW },
+          { label: 'Materialized Views', type: ContextValue.RESOURCE_GROUP, iconId: 'folder', childType: ContextValue.MATERIALIZED_VIEW },
+          { label: 'Functions', type: ContextValue.RESOURCE_GROUP, iconId: 'folder', childType: ContextValue.FUNCTION },
         ];
-      case ContextValue.TABLE:
-      case ContextValue.VIEW:
-        let i = 0;
-        return <NSDatabase.IColumn[]>[{
-          database: 'fakedb',
-          label: `column${i++}`,
-          type: ContextValue.COLUMN,
-          dataType: 'faketype',
-          schema: 'fakeschema',
-          childType: ContextValue.NO_CHILD,
-          isNullable: false,
-          iconName: 'column',
-          table: parent,
-        },{
-          database: 'fakedb',
-          label: `column${i++}`,
-          type: ContextValue.COLUMN,
-          dataType: 'faketype',
-          schema: 'fakeschema',
-          childType: ContextValue.NO_CHILD,
-          isNullable: false,
-          iconName: 'column',
-          table: parent,
-        },{
-          database: 'fakedb',
-          label: `column${i++}`,
-          type: ContextValue.COLUMN,
-          dataType: 'faketype',
-          schema: 'fakeschema',
-          childType: ContextValue.NO_CHILD,
-          isNullable: false,
-          iconName: 'column',
-          table: parent,
-        },{
-          database: 'fakedb',
-          label: `column${i++}`,
-          type: ContextValue.COLUMN,
-          dataType: 'faketype',
-          schema: 'fakeschema',
-          childType: ContextValue.NO_CHILD,
-          isNullable: false,
-          iconName: 'column',
-          table: parent,
-        },{
-          database: 'fakedb',
-          label: `column${i++}`,
-          type: ContextValue.COLUMN,
-          dataType: 'faketype',
-          schema: 'fakeschema',
-          childType: ContextValue.NO_CHILD,
-          isNullable: false,
-          iconName: 'column',
-          table: parent,
-        }];
-      case ContextValue.RESOURCE_GROUP:
-        return this.getChildrenForGroup({ item, parent });
     }
     return [];
   }
-
-  /**
-   * This method is a helper to generate the connection explorer tree.
-   * It gets the child based on child types
-   */
   private async getChildrenForGroup({ parent, item }: Arg0<IConnectionDriver['getChildrenForItem']>) {
-    console.log({ item, parent });
     switch (item.childType) {
+      case ContextValue.SCHEMA:
+        return this.queryResults(this.queries.fetchSchemas(parent as NSDatabase.IDatabase));
       case ContextValue.TABLE:
+        return this.queryResults(this.queries.fetchTables(parent as NSDatabase.ISchema));
       case ContextValue.VIEW:
-        let i = 0;
-        return <MConnectionExplorer.IChildItem[]>[{
-          database: 'fakedb',
-          label: `${item.childType}${i++}`,
-          type: item.childType,
-          schema: 'fakeschema',
-          childType: ContextValue.COLUMN,
-        },{
-          database: 'fakedb',
-          label: `${item.childType}${i++}`,
-          type: item.childType,
-          schema: 'fakeschema',
-          childType: ContextValue.COLUMN,
-        },
-        {
-          database: 'fakedb',
-          label: `${item.childType}${i++}`,
-          type: item.childType,
-          schema: 'fakeschema',
-          childType: ContextValue.COLUMN,
-        }];
+        return this.queryResults(this.queries.fetchViews(parent as NSDatabase.ISchema));
+      case ContextValue.MATERIALIZED_VIEW:
+        return this.queryResults(this.queries.fetchMaterializedViews(parent as NSDatabase.ISchema));
+      case ContextValue.FUNCTION:
+        return this.queryResults(this.queries.fetchFunctions(parent as NSDatabase.ISchema));
     }
     return [];
   }
 
-  /**
-   * This method is a helper for intellisense and quick picks.
-   */
-  public async searchItems(itemType: ContextValue, search: string, _extraParams: any = {}): Promise<NSDatabase.SearchableItem[]> {
+  public searchItems(itemType: ContextValue, search: string, extraParams: any = {}): Promise<NSDatabase.SearchableItem[]> {
     switch (itemType) {
       case ContextValue.TABLE:
-      case ContextValue.VIEW:
-        let j = 0;
-        return [{
-          database: 'fakedb',
-          label: `${search || 'table'}${j++}`,
-          type: itemType,
-          schema: 'fakeschema',
-          childType: ContextValue.COLUMN,
-        },{
-          database: 'fakedb',
-          label: `${search || 'table'}${j++}`,
-          type: itemType,
-          schema: 'fakeschema',
-          childType: ContextValue.COLUMN,
-        },
-        {
-          database: 'fakedb',
-          label: `${search || 'table'}${j++}`,
-          type: itemType,
-          schema: 'fakeschema',
-          childType: ContextValue.COLUMN,
-        }]
+        return this.queryResults(this.queries.searchTables({ search }));
       case ContextValue.COLUMN:
-        let i = 0;
-        return [
-          {
-            database: 'fakedb',
-            label: `${search || 'column'}${i++}`,
-            type: ContextValue.COLUMN,
-            dataType: 'faketype',
-            schema: 'fakeschema',
-            childType: ContextValue.NO_CHILD,
-            isNullable: false,
-            iconName: 'column',
-            table: 'fakeTable'
-          },{
-            database: 'fakedb',
-            label: `${search || 'column'}${i++}`,
-            type: ContextValue.COLUMN,
-            dataType: 'faketype',
-            schema: 'fakeschema',
-            childType: ContextValue.NO_CHILD,
-            isNullable: false,
-            iconName: 'column',
-            table: 'fakeTable'
-          },{
-            database: 'fakedb',
-            label: `${search || 'column'}${i++}`,
-            type: ContextValue.COLUMN,
-            dataType: 'faketype',
-            schema: 'fakeschema',
-            childType: ContextValue.NO_CHILD,
-            isNullable: false,
-            iconName: 'column',
-            table: 'fakeTable'
-          },{
-            database: 'fakedb',
-            label: `${search || 'column'}${i++}`,
-            type: ContextValue.COLUMN,
-            dataType: 'faketype',
-            schema: 'fakeschema',
-            childType: ContextValue.NO_CHILD,
-            isNullable: false,
-            iconName: 'column',
-            table: 'fakeTable'
-          },{
-            database: 'fakedb',
-            label: `${search || 'column'}${i++}`,
-            type: ContextValue.COLUMN,
-            dataType: 'faketype',
-            schema: 'fakeschema',
-            childType: ContextValue.NO_CHILD,
-            isNullable: false,
-            iconName: 'column',
-            table: 'fakeTable'
-          }
-        ];
+        return this.queryResults(this.queries.searchColumns({ search, ...extraParams }));
     }
-    return [];
   }
 
-  public getStaticCompletions: IConnectionDriver['getStaticCompletions'] = async () => {
-    return {};
+  private completionsCache: { [w: string]: NSDatabase.IStaticCompletion } = null;
+  public getStaticCompletions = async () => {
+    if (this.completionsCache) return this.completionsCache;
+    this.completionsCache = {};
+    const items = await this.queryResults('SELECT UPPER(word) AS label, UPPER(catdesc) AS desc FROM pg_get_keywords();');
+
+    items.forEach((item: any) => {
+      this.completionsCache[item.label] = {
+        label: item.label,
+        detail: item.label,
+        filterText: item.label,
+        sortText: (['SELECT', 'CREATE', 'UPDATE', 'DELETE'].includes(item.label) ? '2:' : '') + item.label,
+        documentation: {
+          value: `\`\`\`yaml\nWORD: ${item.label}\nTYPE: ${item.desc}\n\`\`\``,
+          kind: 'markdown'
+        }
+      }
+    });
+
+    return this.completionsCache;
   }
 }
