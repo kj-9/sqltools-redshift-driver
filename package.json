@@ -1,19 +1,20 @@
 {
   "name": "sqltools-redshift-driver",
-  "displayName": "Redshift Driver",
-  "description": "Redshift Driver for VSCode SQLTools extention",
+  "displayName": "Redshift Driver (Dedicated ver)",
+  "description": "Redshift Driver for VSCode SQLTools extension",
   "version": "0.0.2",
   "engines": {
     "vscode": "^1.42.0"
   },
   "publisher": "kj",
   "license": "MIT",
-  "repository": {},
-  "bugs": {},
-  "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kj-9/sqltools-redshift-driver"
+  },
+  "bugs": {
+    "url": "https://github.com/kj-9/sqltools-redshift-driver/issues"
   },
   "keywords": [
     "sqltools-driver",
@@ -35,9 +36,17 @@
     "onCommand:sqltools.*"
   ],
   "main": "./out/extension.js",
+  "scripts": {
+    "vscode:prepublish": "yarn run clean && concurrently \"npm:build:*\"",
+    "clean": "rimraf -rf out *.vsix",
+    "build:extension": "webpack --env entry='extension' --mode production",
+    "build:plugin": "webpack --env entry='ls/plugin' --mode production",
+    "tsc-compile": "tsc -p ./"
+  },
   "dependencies": {
     "@sqltools/base-driver": "latest",
     "@sqltools/types": "latest",
+    "lodash": "^4.17.21",
     "pg": "^8.5.1",
     "uuid": "^7.0.2"
   },
@@ -46,6 +55,11 @@
     "@types/node": "^14.0.9",
     "@types/pg": "^7.14.11",
     "@types/vscode": "^1.42.0",
-    "typescript": "^3.7.3"
+    "concurrently": "^6.0.1",
+    "rimraf": "^3.0.2",
+    "ts-loader": "^8.1.0",
+    "typescript": "^3.7.3",
+    "webpack": "^5.30.0",
+    "webpack-cli": "^4.6.0"
   }
 }
