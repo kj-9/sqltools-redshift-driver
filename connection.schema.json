@@ -148,7 +148,7 @@
             "port": {
               "title": "Port",
               "minimum": 1,
-              "default": 5432,
+              "default": 5439,
               "type": "integer"
             },
             "database": {
