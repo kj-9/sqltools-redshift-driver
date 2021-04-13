@@ -36,6 +36,7 @@
     "onCommand:sqltools.*"
   ],
   "main": "./out/extension.js",
+  "icon": "icons/icon.png",
   "scripts": {
     "vscode:prepublish": "yarn run clean && concurrently \"npm:build:*\"",
     "clean": "rimraf -rf out *.vsix",
