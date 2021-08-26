@@ -3,11 +3,14 @@ import escapeTableName from './escape-table';
 import { IBaseQueries, ContextValue } from '@sqltools/types';
 
 const describeTable: IBaseQueries['describeTable'] = queryFactory`
-SELECT * FROM INFORMATION_SCHEMA.COLUMNS
+SELECT * 
+FROM SVV_ALL_COLUMNS
 WHERE
   TABLE_NAME = '${p => p.label}'
-  AND TABLE_CATALOG = '${p => p.database}'
-  AND TABLE_SCHEMA = '${p => p.schema}'`;
+  AND DATABASE_NAME = '${p => p.database}'
+  AND SCHEMA_NAME = '${p => p.schema}'
+`;
+
 const fetchColumns: IBaseQueries['fetchColumns'] = queryFactory`
 SELECT
   C.COLUMN_NAME AS label,
@@ -20,27 +23,30 @@ SELECT
     ) ELSE '' END
   )) AS "detail",
   C.CHARACTER_MAXIMUM_LENGTH::INT AS size,
-  C.TABLE_CATALOG AS database,
-  C.TABLE_SCHEMA AS schema,
+  C.DATABASE_NAME AS database,
+  C.SCHEMA_NAME AS schema,
   C.COLUMN_DEFAULT AS "defaultValue",
   C.IS_NULLABLE AS "isNullable",
   (CASE WHEN LOWER(TC.constraint_type) = 'primary key' THEN TRUE ELSE FALSE END) as "isPk",
   (CASE WHEN LOWER(TC.constraint_type) = 'foreign key' THEN TRUE ELSE FALSE END) as "isFk"
 FROM
-  INFORMATION_SCHEMA.COLUMNS C
-LEFT JOIN information_schema.key_column_usage KC ON KC.table_name = C.table_name
-  AND KC.table_schema = C.table_schema
+  SVV_ALL_COLUMNS C
+LEFT JOIN information_schema.key_column_usage KC 
+  ON KC.table_name = C.TABLE_NAME
+  AND KC.table_schema = C.SCHEMA_NAME
   AND KC.column_name = C.column_name
-LEFT JOIN information_schema.table_constraints TC ON KC.table_name = TC.table_name
+LEFT JOIN information_schema.table_constraints TC 
+  ON KC.table_name = TC.TABLE_NAME
   AND KC.table_schema = TC.table_schema
   AND KC.constraint_name = TC.constraint_name
-JOIN INFORMATION_SCHEMA.TABLES AS T ON C.TABLE_NAME = T.TABLE_NAME
-  AND C.TABLE_SCHEMA = T.TABLE_SCHEMA
-  AND C.TABLE_CATALOG = T.TABLE_CATALOG
+JOIN SVV_ALL_TABLES AS T 
+  ON C.TABLE_NAME = T.TABLE_NAME
+  AND C.SCHEMA_NAME = T.SCHEMA_NAME
+  AND C.DATABASE_NAME = T.DATABASE_NAME
 WHERE
-  C.TABLE_SCHEMA = '${p => p.schema}'
+  C.SCHEMA_NAME = '${p => p.schema}'
   AND C.TABLE_NAME = '${p => p.label}'
-  AND C.TABLE_CATALOG = '${p => p.database}'
+  AND C.DATABASE_NAME = '${p => p.database}'
 ORDER BY
   C.TABLE_NAME,
   C.ORDINAL_POSITION
@@ -52,6 +58,7 @@ FROM ${p => escapeTableName(p.table)}
 LIMIT ${p => p.limit || 50}
 OFFSET ${p => p.offset || 0};
 `;
+
 const countRecords: IBaseQueries['countRecords'] = queryFactory`
 SELECT count(1) AS total
 FROM ${p => escapeTableName(p.table)};
@@ -77,21 +84,21 @@ FROM
 INNER JOIN pg_catalog.pg_namespace AS n on n.oid = f.pronamespace
 WHERE
   n.nspname = '${p => p.schema}'
-ORDER BY name
-;`;
+ORDER BY name;
+`;
 
-const fetchTablesAndViews = (type: ContextValue, tableType = 'BASE TABLE'): IBaseQueries['fetchTables'] => queryFactory`
+const fetchTablesAndViews = (type: ContextValue, tableType = 'TABLE'): IBaseQueries['fetchTables'] => queryFactory`
 SELECT
   T.TABLE_NAME AS label,
   '${type}' as type,
-  T.TABLE_SCHEMA AS schema,
-  T.TABLE_CATALOG AS database,
+  T.SCHEMA_NAME AS schema,
+  T.DATABASE_NAME AS database,
   ${type === ContextValue.VIEW ? 'TRUE' : 'FALSE'} AS isView
-FROM INFORMATION_SCHEMA.TABLES AS T
+FROM SVV_ALL_TABLES AS T
 WHERE
-  T.TABLE_SCHEMA = '${p => p.schema}'
-  AND T.TABLE_CATALOG = '${p => p.database}'
-  AND T.TABLE_TYPE = '${tableType}'
+  T.SCHEMA_NAME = '${p => p.schema}'
+  AND T.DATABASE_NAME = '${p => p.database}'
+  AND (T.TABLE_TYPE = '${tableType}' OR T.TABLE_TYPE = 'EXTERNAL ${tableType}')
 ORDER BY
   T.TABLE_NAME;
 `;
@@ -100,18 +107,18 @@ const searchTables: IBaseQueries['searchTables'] = queryFactory`
 SELECT
   T.TABLE_NAME AS label,
   (CASE WHEN T.TABLE_TYPE = 'BASE TABLE' THEN '${ContextValue.TABLE}' ELSE '${ContextValue.VIEW}' END) as type,
-  T.TABLE_SCHEMA AS schema,
-  T.TABLE_CATALOG AS database,
+  T.SCHEMA_NAME AS schema,
+  T.DATABASE_NAME AS database,
   (CASE WHEN T.TABLE_TYPE = 'BASE TABLE' THEN FALSE ELSE TRUE END) AS "isView",
   (CASE WHEN T.TABLE_TYPE = 'BASE TABLE' THEN 'table' ELSE 'view' END) AS description,
-  ('"' || T.TABLE_CATALOG || '"."' || T.TABLE_SCHEMA || '"."' || T.TABLE_NAME || '"') as detail
-FROM INFORMATION_SCHEMA.TABLES AS T
+  ('"' || T.DATABASE_NAME || '"."' || T.SCHEMA_NAME || '"."' || T.TABLE_NAME || '"') as detail
+FROM SVV_ALL_TABLES AS T
 WHERE
-  T.TABLE_SCHEMA !~ '^pg_'
-  AND T.TABLE_SCHEMA <> 'information_schema'
+  T.SCHEMA_NAME !~ '^pg_'
+  AND T.SCHEMA_NAME <> 'information_schema'
   ${p => p.search ? `AND (
-    (T.TABLE_CATALOG || '.' || T.TABLE_SCHEMA || '.' || T.TABLE_NAME) ILIKE '%${p.search}%'
-    OR ('"' || T.TABLE_CATALOG || '"."' || T.TABLE_SCHEMA || '"."' || T.TABLE_NAME || '"') ILIKE '%${p.search}%'
+    (T.DATABASE_NAME || '.' || T.SCHEMA_NAME || '.' || T.TABLE_NAME) ILIKE '%${p.search}%'
+    OR ('"' || T.DATABASE_NAME || '"."' || T.SCHEMA_NAME || '"."' || T.TABLE_NAME || '"') ILIKE '%${p.search}%'
     OR T.TABLE_NAME ILIKE '%${p.search}%'
   )` : ''}
 ORDER BY
@@ -126,26 +133,29 @@ SELECT
   C.TABLE_NAME AS table,
   C.DATA_TYPE AS "dataType",
   C.CHARACTER_MAXIMUM_LENGTH::INT AS size,
-  C.TABLE_CATALOG AS database,
-  C.TABLE_SCHEMA AS schema,
+  C.DATABASE_NAME AS database,
+  C.SCHEMA_NAME AS schema,
   C.COLUMN_DEFAULT AS defaultValue,
   C.IS_NULLABLE AS isNullable,
   (CASE WHEN LOWER(TC.constraint_type) = 'primary key' THEN TRUE ELSE FALSE END) as "isPk",
   (CASE WHEN LOWER(TC.constraint_type) = 'foreign key' THEN TRUE ELSE FALSE END) as "isFk"
 FROM
-  INFORMATION_SCHEMA.COLUMNS C
-LEFT JOIN information_schema.key_column_usage KC ON KC.table_name = C.table_name
-  AND KC.table_schema = C.table_schema
+  SVV_ALL_COLUMNS C
+LEFT JOIN information_schema.key_column_usage KC 
+  ON KC.table_name = C.TABLE_NAME
+  AND KC.table_schema = C.SCHEMA_NAME
   AND KC.column_name = C.column_name
-LEFT JOIN information_schema.table_constraints TC ON KC.table_name = TC.table_name
+LEFT JOIN information_schema.table_constraints TC 
+  ON KC.table_name = TC.TABLE_NAME
   AND KC.table_schema = TC.table_schema
   AND KC.constraint_name = TC.constraint_name
-JOIN INFORMATION_SCHEMA.TABLES AS T ON C.TABLE_NAME = T.TABLE_NAME
-  AND C.TABLE_SCHEMA = T.TABLE_SCHEMA
-  AND C.TABLE_CATALOG = T.TABLE_CATALOG
+JOIN SVV_ALL_TABLES AS T 
+  ON C.TABLE_NAME = T.TABLE_NAME
+  AND C.SCHEMA_NAME = T.SCHEMA_NAME
+  AND C.DATABASE_NAME = T.DATABASE_NAME
 WHERE
-  C.TABLE_SCHEMA !~ '^pg_'
-  AND C.TABLE_SCHEMA <> 'information_schema'
+  C.SCHEMA_NAME !~ '^pg_'
+  AND C.SCHEMA_NAME <> 'information_schema'
   ${p => p.tables.filter(t => !!t.label).length
     ? `AND LOWER(C.TABLE_NAME) IN (${p.tables.filter(t => !!t.label).map(t => `'${t.label}'`.toLowerCase()).join(', ')})`
     : ''
@@ -160,11 +170,13 @@ WHERE
 ORDER BY
   C.TABLE_NAME,
   C.ORDINAL_POSITION
-LIMIT ${p => p.limit || 100}
+  LIMIT ${p => p.limit || 100}
 `;
 
 const fetchTables: IBaseQueries['fetchTables'] = fetchTablesAndViews(ContextValue.TABLE);
+
 const fetchViews: IBaseQueries['fetchTables'] = fetchTablesAndViews(ContextValue.VIEW, 'VIEW');
+
 const fetchMaterializedViews: IBaseQueries['fetchTables'] = queryFactory`
 SELECT
   '${ContextValue.MATERIALIZED_VIEW}' as type,
@@ -194,6 +206,7 @@ WHERE
     )
   );
 `;
+
 const fetchDatabases: IBaseQueries['fetchDatabases'] = queryFactory`
 SELECT
   db.*,
@@ -209,32 +222,19 @@ WHERE
 ORDER BY
   db.datname;
 `;
+
 const fetchSchemas: IBaseQueries['fetchSchemas'] = queryFactory`
-SELECT DISTINCT *
-FROM (
-  SELECT table_schema as label,
-      table_schema as schema,
-      '${ContextValue.SCHEMA}' as "type",
-      'group-by-ref-type' as "iconId",
-      table_catalog as database
-  FROM information_schema.tables
-  WHERE
-    table_schema !~ '^pg_'
-    AND table_schema <> 'information_schema'
-    AND table_catalog = '${p => p.database}'
-  UNION
-  SELECT
-    schema_name AS label,
-    schema_name AS schema,
-    '${ContextValue.SCHEMA}' as "type",
-    'group-by-ref-type' as "iconId",
-    catalog_name as database
-  FROM information_schema.schemata
-  WHERE
-    schema_name !~ '^pg_'
-    AND schema_name <> 'information_schema'
-    AND catalog_name = '${p => p.database}'
-)
+SELECT DISTINCT 
+  SCHEMA_NAME as label,
+  SCHEMA_NAME as schema,
+  '${ContextValue.SCHEMA}' as "type",
+  'group-by-ref-type' as "iconId",
+  DATABASE_NAME as database
+FROM SVV_ALL_SCHEMAS
+WHERE
+  SCHEMA_NAME !~ '^pg_'
+  AND SCHEMA_NAME <> 'information_schema'
+  AND DATABASE_NAME = '${p => p.database}'
 `;
 
 export default {
