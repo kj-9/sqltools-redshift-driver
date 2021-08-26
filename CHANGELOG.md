@@ -1,5 +1,10 @@
 # Change Log
 
+
+### 0.0.3
+
+- Show external tables (Thanks @peterbayerle!)
+
 ### 0.0.2
 
 - Add accidentally excluded updates in v0.0.1

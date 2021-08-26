@@ -2,7 +2,7 @@
   "name": "sqltools-driver-redshift",
   "displayName": "Redshift Driver (Dedicated ver)",
   "description": "Redshift Driver for VSCode SQLTools extension",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "engines": {
     "vscode": "^1.42.0"
   },
