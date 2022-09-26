@@ -17,13 +17,12 @@
             }
         },
         {
+            "name": "Attach SQLTools LS",
             "type": "node",
             "request": "attach",
-            "name": "Attach SQLTools LS",
             "port": 6099,
             "restart": true,
             "sourceMaps": true,
-            "protocol": "inspector",
             "timeout": 100000,
             "outFiles": [
                 "${workspaceFolder}/out/**/*.js"
