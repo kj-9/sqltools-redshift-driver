@@ -2,7 +2,7 @@
   "name": "sqltools-driver-redshift",
   "displayName": "Redshift Driver (Dedicated ver)",
   "description": "Redshift Driver for VSCode SQLTools extension",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "engines": {
     "vscode": "^1.42.0"
   },
@@ -42,7 +42,9 @@
     "clean": "rimraf -rf out *.vsix",
     "build:extension": "webpack --env entry='extension' --mode production",
     "build:plugin": "webpack --env entry='ls/plugin' --mode production",
-    "tsc-compile": "tsc -p ./"
+    "tsc-compile": "tsc -p ./",
+    "test": "node ./out/test/runTest.js",
+    "watch": "tsc -watch -p ./"
   },
   "dependencies": {
     "@sqltools/base-driver": "latest",
@@ -53,10 +55,13 @@
   },
   "devDependencies": {
     "@babel/preset-env": "^7.5.5",
+    "@types/mocha": "^9.0.0",
     "@types/node": "^14.0.9",
     "@types/pg": "^7.14.11",
     "@types/vscode": "^1.42.0",
+    "@vscode/test-electron": "^1.6.2",
     "concurrently": "^6.0.1",
+    "mocha": "^9.1.3",
     "rimraf": "^3.0.2",
     "ts-loader": "^8.1.0",
     "typescript": "^3.7.3",
