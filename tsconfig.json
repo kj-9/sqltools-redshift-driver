@@ -5,7 +5,9 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "experimentalDecorators": true,
-    "lib": ["es6"],
+    "lib": [
+      "es2020"
+    ],
     "module": "commonjs",
     "noEmit": false,
     "removeComments": true,
@@ -13,13 +15,11 @@
     "sourceMap": true,
     "skipLibCheck": true,
     "declaration": false,
-    "target": "esnext",
-		"outDir": "out"
+    "target": "es2020",
+    "outDir": "out"
   },
-  "include": [
-    "src/**/*"
-  ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    ".vscode-test"
   ]
 }
