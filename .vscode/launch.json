@@ -31,7 +31,19 @@
             "skipFiles": [
                 "<node_internals>/**"
             ],
-        }
+        },
+        {
+			"name": "Run Extension Tests",
+			"type": "extensionHost",
+			"request": "launch",
+			"runtimeExecutable": "${execPath}",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--extensionTestsPath=${workspaceFolder}/out/test/suite/index"
+			],
+			"outFiles": ["${workspaceFolder}/out/test/**/*.js"],
+            "preLaunchTask": "${defaultBuildTask}",
+		}
     ],
     "compounds": [
         {
