@@ -19,3 +19,4 @@ workflows:
           version: "18.7.0-browsers"
           # If you are using yarn, change the line below from "npm" to "yarn"
           pkg-manager: yarn
+          test-results-for: mocha
