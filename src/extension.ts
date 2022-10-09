@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { IExtension, IExtensionPlugin, IDriverExtensionApi } from '@sqltools/types';
 import { ExtensionContext } from 'vscode';
-import { DRIVER_ALIASES } from './constants';
+import { DRIVER_ALIAS } from './constants';
 const { publisher, name, displayName } = require('../package.json');
 
 export async function activate(extContext: ExtensionContext): Promise<IDriverExtensionApi> {
@@ -20,18 +20,17 @@ export async function activate(extContext: ExtensionContext): Promise<IDriverExt
     type: 'driver',
     async register(extension) {
       // register ext part here
-      extension.resourcesMap().set(`driver/${DRIVER_ALIASES[0].value}/icons`, {
+      extension.resourcesMap().set(`driver/${DRIVER_ALIAS.value}/icons`, {
         active: extContext.asAbsolutePath('icons/active.png'),
         default: extContext.asAbsolutePath('icons/default.png'),
         inactive: extContext.asAbsolutePath('icons/inactive.png'),
       });
-      DRIVER_ALIASES.forEach(({ value }) => {
-        extension.resourcesMap().set(`driver/${value}/extension-id`, extensionId);
-        extension
-          .resourcesMap()
-          .set(`driver/${value}/connection-schema`, extContext.asAbsolutePath('connection.schema.json'));
-        extension.resourcesMap().set(`driver/${value}/ui-schema`, extContext.asAbsolutePath('ui.schema.json'));
-      });
+      extension.resourcesMap().set(`driver/${DRIVER_ALIAS.value}/extension-id`, extensionId);
+      extension
+        .resourcesMap()
+        .set(`driver/${DRIVER_ALIAS.value}/connection-schema`, extContext.asAbsolutePath('connection.schema.json'));
+      extension.resourcesMap().set(`driver/${DRIVER_ALIAS.value}/ui-schema`, extContext.asAbsolutePath('ui.schema.json'));
+
       await extension.client.sendRequest('ls/RegisterPlugin', { path: extContext.asAbsolutePath('out/ls/plugin.js') });
     },
   };
@@ -125,7 +124,7 @@ export async function activate(extContext: ExtensionContext): Promise<IDriverExt
       return formData;
 
     },
-    driverAliases: DRIVER_ALIASES,
+    driverAliases: [DRIVER_ALIAS],
   };
 }
 
