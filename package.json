@@ -39,14 +39,16 @@
   "main": "./out/extension.js",
   "icon": "icons/icon.png",
   "scripts": {
-    "vscode:prepublish": "yarn run clean && concurrently \"npm:build:*\"",
-    "clean": "rimraf -rf out *.vsix",
+    "build": "concurrently \"npm:build:*\"",
     "build:extension": "webpack --env entry='extension' --mode production",
     "build:plugin": "webpack --env entry='ls/plugin' --mode production",
-    "tsc-compile": "tsc -p ./",
+    "clean": "rimraf -rf out *.vsix",
     "run-test": "node ./out/test/runTest.js",
+    "tsc-compile": "tsc -p ./",
+    "tsc-watch": "tsc -watch -p ./",
     "test": "yarn run tsc-compile && yarn run run-test",
-    "watch": "tsc -watch -p ./"
+    "package": "yarn run clean && yarn run build && vsce package --yarn --allow-star-activation",
+    "publish": "vsce publish --yarn --allow-star-activation"
   },
   "dependencies": {
     "@sqltools/base-driver": "latest",
@@ -59,7 +61,7 @@
     "@types/mocha": "^10.0.0",
     "@types/node": "^18.8.3",
     "@types/pg": "^8.6.5",
-    "@types/vscode": "^1.72.0",
+    "@types/vscode": "^1.42.0",
     "@vscode/test-electron": "^2.1.5",
     "concurrently": "^7.4.0",
     "mocha": "^10.0.0",
@@ -68,6 +70,7 @@
     "rimraf": "^3.0.2",
     "ts-loader": "^9.4.1",
     "typescript": "^4.8.4",
+    "vsce": "^2.11.0",
     "webpack": "^5.74.0",
     "webpack-cli": "^4.10.0"
   }
