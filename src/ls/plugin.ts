@@ -1,13 +1,11 @@
 import { ILanguageServerPlugin } from '@sqltools/types';
-import YourDriver from './driver';
-import { DRIVER_ALIASES } from './../constants';
+import RedshiftDriver from './driver';
+import { DRIVER_ALIAS } from './../constants';
 
-const YourDriverPlugin: ILanguageServerPlugin = {
+const RedshiftDriverPlugin: ILanguageServerPlugin = {
   register(server) {
-    DRIVER_ALIASES.forEach(({ value }) => {
-      server.getContext().drivers.set(value, YourDriver as any);
-    });
+      server.getContext().drivers.set(DRIVER_ALIAS.value, RedshiftDriver as any);
   }
 }
 
-export default YourDriverPlugin;
+export default RedshiftDriverPlugin;
