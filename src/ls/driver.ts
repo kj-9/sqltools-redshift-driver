@@ -1,12 +1,18 @@
-import fs from 'fs';
-import zipObject from 'lodash/zipObject';
-import { Pool, PoolConfig, PoolClient, types, FieldDef } from 'pg';
-import { v4 as generateId } from 'uuid';
-import AbstractDriver from '@sqltools/base-driver';
-import { IConnectionDriver, MConnectionExplorer, NSDatabase, ContextValue, Arg0 } from '@sqltools/types';
+import fs from "fs";
+import zipObject from "lodash/zipObject";
+import { Pool, PoolConfig, PoolClient, types, FieldDef } from "pg";
+import { v4 as generateId } from "uuid";
+import AbstractDriver from "@sqltools/base-driver";
+import {
+  IConnectionDriver,
+  MConnectionExplorer,
+  NSDatabase,
+  ContextValue,
+  Arg0,
+} from "@sqltools/types";
 
-import parse from './parser';
-import queries from './queries';
+import parse from "./parser";
+import queries from "./queries";
 
 const rawValue = (v: string) => v;
 
@@ -14,17 +20,22 @@ types.setTypeParser((types as any).builtins.TIMESTAMP || 1114, rawValue);
 types.setTypeParser((types as any).builtins.TIMESTAMPTZ || 1184, rawValue);
 types.setTypeParser((types as any).builtins.DATE || 1082, rawValue);
 
-export default class RedshiftDriver extends AbstractDriver<Pool, PoolConfig> implements IConnectionDriver {
+export default class RedshiftDriver
+  extends AbstractDriver<Pool, PoolConfig>
+  implements IConnectionDriver
+{
   queries = queries;
   public async open() {
     if (this.connection) {
       return this.connection;
     }
     try {
-      const { ssl, ...pgOptions }: PoolConfig = this.credentials.pgOptions || {};
+      const { ssl, ...pgOptions }: PoolConfig =
+        this.credentials.pgOptions || {};
 
       let poolConfig: PoolConfig = {
-        connectionTimeoutMillis: Number(`${this.credentials.connectionTimeout || 0}`) * 1000,
+        connectionTimeoutMillis:
+          Number(`${this.credentials.connectionTimeout || 0}`) * 1000,
         ...pgOptions,
       };
 
@@ -32,7 +43,7 @@ export default class RedshiftDriver extends AbstractDriver<Pool, PoolConfig> imp
         poolConfig = {
           connectionString: this.credentials.connectString,
           ...poolConfig,
-        }
+        };
       } else {
         poolConfig = {
           database: this.credentials.database,
@@ -44,17 +55,21 @@ export default class RedshiftDriver extends AbstractDriver<Pool, PoolConfig> imp
         };
       }
       if (ssl) {
-        if (typeof ssl === 'object') {
+        if (typeof ssl === "object") {
           const useSsl = {
             ...ssl,
           };
-          ['ca', 'key', 'cert', 'pfx'].forEach(key => {
+          ["ca", "key", "cert", "pfx"].forEach((key) => {
             if (!useSsl[key]) {
               delete useSsl[key];
               return;
-            };
-            this.log.info(`Reading file ${useSsl[key].replace(/^file:\/\//, '')}`)
-            useSsl[key] = fs.readFileSync(useSsl[key].replace(/^file:\/\//, '')).toString();
+            }
+            this.log.info(
+              `Reading file ${useSsl[key].replace(/^file:\/\//, "")}`
+            );
+            useSsl[key] = fs
+              .readFileSync(useSsl[key].replace(/^file:\/\//, ""))
+              .toString();
           });
           if (Object.keys(useSsl).length > 0) {
             poolConfig.ssl = useSsl;
@@ -81,20 +96,32 @@ export default class RedshiftDriver extends AbstractDriver<Pool, PoolConfig> imp
     pool.end();
   }
 
-  public query: (typeof AbstractDriver)['prototype']['query'] = (query, opt = {}) => {
+  public query: typeof AbstractDriver["prototype"]["query"] = (
+    query,
+    opt = {}
+  ) => {
     const messages = [];
     let cli: PoolClient;
     const { requestId } = opt;
     return this.open()
       .then(async (pool) => {
         cli = await pool.connect();
-        cli.on('notice', notice => messages.push(this.prepareMessage(`${notice.name.toUpperCase()}: ${notice.message}`)));
-        const results = await cli.query({ text: query.toString(), rowMode: 'array' });
+        cli.on("notice", (notice) =>
+          messages.push(
+            this.prepareMessage(
+              `${notice.name.toUpperCase()}: ${notice.message}`
+            )
+          )
+        );
+        const results = await cli.query({
+          text: query.toString(),
+          rowMode: "array",
+        });
         cli.release();
         return results;
       })
       .then((results: any[] | any) => {
-        const queries = parse(query.toString(), 'pg');
+        const queries = parse(query.toString(), "pg");
         if (!Array.isArray(results)) {
           results = [results];
         }
@@ -107,34 +134,48 @@ export default class RedshiftDriver extends AbstractDriver<Pool, PoolConfig> imp
             connId: this.getId(),
             cols,
             messages: messages.concat([
-              this.prepareMessage(`${r.command} successfully executed.${r.command.toLowerCase() !== 'select' && typeof r.rowCount === 'number' ? ` ${r.rowCount} rows were affected.` : ''
-                }`)
+              this.prepareMessage(
+                `${r.command} successfully executed.${
+                  r.command.toLowerCase() !== "select" &&
+                  typeof r.rowCount === "number"
+                    ? ` ${r.rowCount} rows were affected.`
+                    : ""
+                }`
+              ),
             ]),
             query: queries[i],
             results: this.mapRows(r.rows, cols),
           };
         });
       })
-      .catch(err => {
+      .catch((err) => {
         cli && cli.release();
-        return [<NSDatabase.IResult>{
-          connId: this.getId(),
-          requestId,
-          resultId: generateId(),
-          cols: [],
-          messages: messages.concat([
-            this.prepareMessage([
-              (err && err.message || err),
-              err && err.routine === 'scanner_yyerror' && err.position ? `at character ${err.position}` : undefined
-            ].filter(Boolean).join(' '))
-          ]),
-          error: true,
-          rawError: err,
-          query,
-          results: [],
-        }];
+        return [
+          <NSDatabase.IResult>{
+            connId: this.getId(),
+            requestId,
+            resultId: generateId(),
+            cols: [],
+            messages: messages.concat([
+              this.prepareMessage(
+                [
+                  (err && err.message) || err,
+                  err && err.routine === "scanner_yyerror" && err.position
+                    ? `at character ${err.position}`
+                    : undefined,
+                ]
+                  .filter(Boolean)
+                  .join(" ")
+              ),
+            ]),
+            error: true,
+            rawError: err,
+            query,
+            results: [],
+          },
+        ];
       });
-  }
+  };
 
   private getColumnNames(fields: FieldDef[]): string[] {
     return fields.reduce((names, { name }) => {
@@ -147,24 +188,29 @@ export default class RedshiftDriver extends AbstractDriver<Pool, PoolConfig> imp
     return rows.map((r) => zipObject(columns, r));
   }
 
-  private async getColumns(parent: NSDatabase.ITable): Promise<NSDatabase.IColumn[]> {
+  private async getColumns(
+    parent: NSDatabase.ITable
+  ): Promise<NSDatabase.IColumn[]> {
     const results = await this.queryResults(this.queries.fetchColumns(parent));
-    return results.map(col => ({
+    return results.map((col) => ({
       ...col,
-      iconName: col.isPk ? 'pk' : (col.isFk ? 'fk' : null),
+      iconName: col.isPk ? "pk" : col.isFk ? "fk" : null,
       childType: ContextValue.NO_CHILD,
-      table: parent
+      table: parent,
     }));
   }
 
   public async testConnection() {
-    const pool = await this.open()
+    const pool = await this.open();
     const cli = await pool.connect();
-    await cli.query('SELECT 1');
+    await cli.query("SELECT 1");
     cli.release();
   }
 
-  public async getChildrenForItem({ item, parent }: Arg0<IConnectionDriver['getChildrenForItem']>) {
+  public async getChildrenForItem({
+    item,
+    parent,
+  }: Arg0<IConnectionDriver["getChildrenForItem"]>) {
     switch (item.type) {
       case ContextValue.CONNECTION:
       case ContextValue.CONNECTED_CONNECTION:
@@ -175,64 +221,114 @@ export default class RedshiftDriver extends AbstractDriver<Pool, PoolConfig> imp
         return this.getColumns(item as NSDatabase.ITable);
       case ContextValue.DATABASE:
         return <MConnectionExplorer.IChildItem[]>[
-          { label: 'Schemas', type: ContextValue.RESOURCE_GROUP, iconId: 'folder', childType: ContextValue.SCHEMA },
+          {
+            label: "Schemas",
+            type: ContextValue.RESOURCE_GROUP,
+            iconId: "folder",
+            childType: ContextValue.SCHEMA,
+          },
         ];
       case ContextValue.RESOURCE_GROUP:
         return this.getChildrenForGroup({ item, parent });
       case ContextValue.SCHEMA:
         return <MConnectionExplorer.IChildItem[]>[
-          { label: 'Tables', type: ContextValue.RESOURCE_GROUP, iconId: 'folder', childType: ContextValue.TABLE },
-          { label: 'Views', type: ContextValue.RESOURCE_GROUP, iconId: 'folder', childType: ContextValue.VIEW },
-          { label: 'Materialized Views', type: ContextValue.RESOURCE_GROUP, iconId: 'folder', childType: ContextValue.MATERIALIZED_VIEW },
-          { label: 'Functions', type: ContextValue.RESOURCE_GROUP, iconId: 'folder', childType: ContextValue.FUNCTION },
+          {
+            label: "Tables",
+            type: ContextValue.RESOURCE_GROUP,
+            iconId: "folder",
+            childType: ContextValue.TABLE,
+          },
+          {
+            label: "Views",
+            type: ContextValue.RESOURCE_GROUP,
+            iconId: "folder",
+            childType: ContextValue.VIEW,
+          },
+          {
+            label: "Materialized Views",
+            type: ContextValue.RESOURCE_GROUP,
+            iconId: "folder",
+            childType: ContextValue.MATERIALIZED_VIEW,
+          },
+          {
+            label: "Functions",
+            type: ContextValue.RESOURCE_GROUP,
+            iconId: "folder",
+            childType: ContextValue.FUNCTION,
+          },
         ];
     }
     return [];
   }
-  private async getChildrenForGroup({ parent, item }: Arg0<IConnectionDriver['getChildrenForItem']>) {
+  private async getChildrenForGroup({
+    parent,
+    item,
+  }: Arg0<IConnectionDriver["getChildrenForItem"]>) {
     switch (item.childType) {
       case ContextValue.SCHEMA:
-        return this.queryResults(this.queries.fetchSchemas(parent as NSDatabase.IDatabase));
+        return this.queryResults(
+          this.queries.fetchSchemas(parent as NSDatabase.IDatabase)
+        );
       case ContextValue.TABLE:
-        return this.queryResults(this.queries.fetchTables(parent as NSDatabase.ISchema));
+        return this.queryResults(
+          this.queries.fetchTables(parent as NSDatabase.ISchema)
+        );
       case ContextValue.VIEW:
-        return this.queryResults(this.queries.fetchViews(parent as NSDatabase.ISchema));
+        return this.queryResults(
+          this.queries.fetchViews(parent as NSDatabase.ISchema)
+        );
       case ContextValue.MATERIALIZED_VIEW:
-        return this.queryResults(this.queries.fetchMaterializedViews(parent as NSDatabase.ISchema));
+        return this.queryResults(
+          this.queries.fetchMaterializedViews(parent as NSDatabase.ISchema)
+        );
       case ContextValue.FUNCTION:
-        return this.queryResults(this.queries.fetchFunctions(parent as NSDatabase.ISchema));
+        return this.queryResults(
+          this.queries.fetchFunctions(parent as NSDatabase.ISchema)
+        );
     }
     return [];
   }
 
-  public searchItems(itemType: ContextValue, search: string, extraParams: any = {}): Promise<NSDatabase.SearchableItem[]> {
+  public searchItems(
+    itemType: ContextValue,
+    search: string,
+    extraParams: any = {}
+  ): Promise<NSDatabase.SearchableItem[]> {
     switch (itemType) {
       case ContextValue.TABLE:
         return this.queryResults(this.queries.searchTables({ search }));
       case ContextValue.COLUMN:
-        return this.queryResults(this.queries.searchColumns({ search, ...extraParams }));
+        return this.queryResults(
+          this.queries.searchColumns({ search, ...extraParams })
+        );
     }
   }
 
-  private completionsCache: { [w: string]: NSDatabase.IStaticCompletion } = null;
+  private completionsCache: { [w: string]: NSDatabase.IStaticCompletion } =
+    null;
   public getStaticCompletions = async () => {
     if (this.completionsCache) return this.completionsCache;
     this.completionsCache = {};
-    const items = await this.queryResults('SELECT UPPER(word) AS label, UPPER(catdesc) AS desc FROM pg_get_keywords();');
+    const items = await this.queryResults(
+      "SELECT UPPER(word) AS label, UPPER(catdesc) AS desc FROM pg_get_keywords();"
+    );
 
     items.forEach((item: any) => {
       this.completionsCache[item.label] = {
         label: item.label,
         detail: item.label,
         filterText: item.label,
-        sortText: (['SELECT', 'CREATE', 'UPDATE', 'DELETE'].includes(item.label) ? '2:' : '') + item.label,
+        sortText:
+          (["SELECT", "CREATE", "UPDATE", "DELETE"].includes(item.label)
+            ? "2:"
+            : "") + item.label,
         documentation: {
           value: `\`\`\`yaml\nWORD: ${item.label}\nTYPE: ${item.desc}\n\`\`\``,
-          kind: 'markdown'
-        }
-      }
+          kind: "markdown",
+        },
+      };
     });
 
     return this.completionsCache;
-  }
+  };
 }

@@ -1,8 +1,11 @@
-import { IDriverAlias } from '@sqltools/types';
+import { IDriverAlias } from "@sqltools/types";
 
-const { displayName } = require('../package.json');
+import { displayName } from "../package.json";
 
 /**
  * Aliase for the driver
  */
-export const DRIVER_ALIAS: IDriverAlias = { displayName: displayName, value: displayName };
+export const DRIVER_ALIAS: IDriverAlias = {
+  displayName: displayName,
+  value: displayName,
+};

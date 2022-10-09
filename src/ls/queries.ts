@@ -1,17 +1,17 @@
-import queryFactory from '@sqltools/base-driver/dist/lib/factory';
-import escapeTableName from './escape-table';
-import { IBaseQueries, ContextValue } from '@sqltools/types';
+import queryFactory from "@sqltools/base-driver/dist/lib/factory";
+import escapeTableName from "./escape-table";
+import { IBaseQueries, ContextValue } from "@sqltools/types";
 
-const describeTable: IBaseQueries['describeTable'] = queryFactory`
+const describeTable: IBaseQueries["describeTable"] = queryFactory`
 SELECT * 
 FROM SVV_ALL_COLUMNS
 WHERE
-  TABLE_NAME = '${p => p.label}'
-  AND DATABASE_NAME = '${p => p.database}'
-  AND SCHEMA_NAME = '${p => p.schema}'
+  TABLE_NAME = '${(p) => p.label}'
+  AND DATABASE_NAME = '${(p) => p.database}'
+  AND SCHEMA_NAME = '${(p) => p.schema}'
 `;
 
-const fetchColumns: IBaseQueries['fetchColumns'] = queryFactory`
+const fetchColumns: IBaseQueries["fetchColumns"] = queryFactory`
 SELECT
   C.COLUMN_NAME AS label,
   '${ContextValue.COLUMN}' as type,
@@ -44,27 +44,27 @@ JOIN SVV_ALL_TABLES AS T
   AND C.SCHEMA_NAME = T.SCHEMA_NAME
   AND C.DATABASE_NAME = T.DATABASE_NAME
 WHERE
-  C.SCHEMA_NAME = '${p => p.schema}'
-  AND C.TABLE_NAME = '${p => p.label}'
-  AND C.DATABASE_NAME = '${p => p.database}'
+  C.SCHEMA_NAME = '${(p) => p.schema}'
+  AND C.TABLE_NAME = '${(p) => p.label}'
+  AND C.DATABASE_NAME = '${(p) => p.database}'
 ORDER BY
   C.TABLE_NAME,
   C.ORDINAL_POSITION
 `;
 
-const fetchRecords: IBaseQueries['fetchRecords'] = queryFactory`
+const fetchRecords: IBaseQueries["fetchRecords"] = queryFactory`
 SELECT *
-FROM ${p => escapeTableName(p.table)}
-LIMIT ${p => p.limit || 50}
-OFFSET ${p => p.offset || 0};
+FROM ${(p) => escapeTableName(p.table)}
+LIMIT ${(p) => p.limit || 50}
+OFFSET ${(p) => p.offset || 0};
 `;
 
-const countRecords: IBaseQueries['countRecords'] = queryFactory`
+const countRecords: IBaseQueries["countRecords"] = queryFactory`
 SELECT count(1) AS total
-FROM ${p => escapeTableName(p.table)};
+FROM ${(p) => escapeTableName(p.table)};
 `;
 
-const fetchFunctions: IBaseQueries['fetchFunctions'] = queryFactory`
+const fetchFunctions: IBaseQueries["fetchFunctions"] = queryFactory`
 SELECT
   '${ContextValue.FUNCTION}' as type,
   f.proname AS name,
@@ -83,30 +83,35 @@ FROM
   pg_catalog.pg_proc AS f
 INNER JOIN pg_catalog.pg_namespace AS n on n.oid = f.pronamespace
 WHERE
-  n.nspname = '${p => p.schema}'
+  n.nspname = '${(p) => p.schema}'
 ORDER BY name;
 `;
 
-const fetchTablesAndViews = (type: ContextValue, tableType = 'TABLE'): IBaseQueries['fetchTables'] => queryFactory`
+const fetchTablesAndViews = (
+  type: ContextValue,
+  tableType = "TABLE"
+): IBaseQueries["fetchTables"] => queryFactory`
 SELECT
   T.TABLE_NAME AS label,
   '${type}' as type,
   T.SCHEMA_NAME AS schema,
   T.DATABASE_NAME AS database,
-  ${type === ContextValue.VIEW ? 'TRUE' : 'FALSE'} AS isView
+  ${type === ContextValue.VIEW ? "TRUE" : "FALSE"} AS isView
 FROM SVV_ALL_TABLES AS T
 WHERE
-  T.SCHEMA_NAME = '${p => p.schema}'
-  AND T.DATABASE_NAME = '${p => p.database}'
+  T.SCHEMA_NAME = '${(p) => p.schema}'
+  AND T.DATABASE_NAME = '${(p) => p.database}'
   AND (T.TABLE_TYPE = '${tableType}' OR T.TABLE_TYPE = 'EXTERNAL ${tableType}')
 ORDER BY
   T.TABLE_NAME;
 `;
 
-const searchTables: IBaseQueries['searchTables'] = queryFactory`
+const searchTables: IBaseQueries["searchTables"] = queryFactory`
 SELECT
   T.TABLE_NAME AS label,
-  (CASE WHEN T.TABLE_TYPE = 'BASE TABLE' THEN '${ContextValue.TABLE}' ELSE '${ContextValue.VIEW}' END) as type,
+  (CASE WHEN T.TABLE_TYPE = 'BASE TABLE' THEN '${ContextValue.TABLE}' ELSE '${
+  ContextValue.VIEW
+}' END) as type,
   T.SCHEMA_NAME AS schema,
   T.DATABASE_NAME AS database,
   (CASE WHEN T.TABLE_TYPE = 'BASE TABLE' THEN FALSE ELSE TRUE END) AS "isView",
@@ -116,17 +121,20 @@ FROM SVV_ALL_TABLES AS T
 WHERE
   T.SCHEMA_NAME !~ '^pg_'
   AND T.SCHEMA_NAME <> 'information_schema'
-  ${p => p.search ? `AND (
+  ${(p) =>
+    p.search
+      ? `AND (
     (T.DATABASE_NAME || '.' || T.SCHEMA_NAME || '.' || T.TABLE_NAME) ILIKE '%${p.search}%'
     OR ('"' || T.DATABASE_NAME || '"."' || T.SCHEMA_NAME || '"."' || T.TABLE_NAME || '"') ILIKE '%${p.search}%'
     OR T.TABLE_NAME ILIKE '%${p.search}%'
-  )` : ''}
+  )`
+      : ""}
 ORDER BY
   T.TABLE_NAME
-LIMIT ${p => p.limit || 100};
+LIMIT ${(p) => p.limit || 100};
 `;
 
-const searchColumns: IBaseQueries['searchColumns'] = queryFactory`
+const searchColumns: IBaseQueries["searchColumns"] = queryFactory`
 SELECT
   C.COLUMN_NAME AS label,
   '${ContextValue.COLUMN}' as type,
@@ -156,28 +164,36 @@ JOIN SVV_ALL_TABLES AS T
 WHERE
   C.SCHEMA_NAME !~ '^pg_'
   AND C.SCHEMA_NAME <> 'information_schema'
-  ${p => p.tables.filter(t => !!t.label).length
-    ? `AND LOWER(C.TABLE_NAME) IN (${p.tables.filter(t => !!t.label).map(t => `'${t.label}'`.toLowerCase()).join(', ')})`
-    : ''
-  }
-  ${p => p.search
-    ? `AND (
+  ${(p) =>
+    p.tables.filter((t) => !!t.label).length
+      ? `AND LOWER(C.TABLE_NAME) IN (${p.tables
+          .filter((t) => !!t.label)
+          .map((t) => `'${t.label}'`.toLowerCase())
+          .join(", ")})`
+      : ""}
+  ${(p) =>
+    p.search
+      ? `AND (
       (C.TABLE_NAME || '.' || C.COLUMN_NAME) ILIKE '%${p.search}%'
       OR C.COLUMN_NAME ILIKE '%${p.search}%'
     )`
-    : ''
-  }
+      : ""}
 ORDER BY
   C.TABLE_NAME,
   C.ORDINAL_POSITION
-  LIMIT ${p => p.limit || 100}
+  LIMIT ${(p) => p.limit || 100}
 `;
 
-const fetchTables: IBaseQueries['fetchTables'] = fetchTablesAndViews(ContextValue.TABLE);
+const fetchTables: IBaseQueries["fetchTables"] = fetchTablesAndViews(
+  ContextValue.TABLE
+);
 
-const fetchViews: IBaseQueries['fetchTables'] = fetchTablesAndViews(ContextValue.VIEW, 'VIEW');
+const fetchViews: IBaseQueries["fetchTables"] = fetchTablesAndViews(
+  ContextValue.VIEW,
+  "VIEW"
+);
 
-const fetchMaterializedViews: IBaseQueries['fetchTables'] = queryFactory`
+const fetchMaterializedViews: IBaseQueries["fetchTables"] = queryFactory`
 SELECT
   '${ContextValue.MATERIALIZED_VIEW}' as type,
   (current_database())::information_schema.sql_identifier AS database,
@@ -188,7 +204,7 @@ SELECT
 FROM pg_namespace nc,
   pg_class c
 WHERE
-  nc.nspname = '${p => p.schema}'
+  nc.nspname = '${(p) => p.schema}'
   AND (
     (c.relnamespace = nc.oid)
     AND (c.relkind = 'm'::"char")
@@ -207,7 +223,7 @@ WHERE
   );
 `;
 
-const fetchDatabases: IBaseQueries['fetchDatabases'] = queryFactory`
+const fetchDatabases: IBaseQueries["fetchDatabases"] = queryFactory`
 SELECT
   db.*,
   db.datname as "label",
@@ -223,7 +239,7 @@ ORDER BY
   db.datname;
 `;
 
-const fetchSchemas: IBaseQueries['fetchSchemas'] = queryFactory`
+const fetchSchemas: IBaseQueries["fetchSchemas"] = queryFactory`
 SELECT DISTINCT 
   SCHEMA_NAME as label,
   SCHEMA_NAME as schema,
@@ -234,7 +250,7 @@ FROM SVV_ALL_SCHEMAS
 WHERE
   SCHEMA_NAME !~ '^pg_'
   AND SCHEMA_NAME <> 'information_schema'
-  AND DATABASE_NAME = '${p => p.database}'
+  AND DATABASE_NAME = '${(p) => p.database}'
 `;
 
 export default {
