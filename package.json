@@ -43,7 +43,8 @@
     "build:extension": "webpack --env entry='extension' --mode production",
     "build:plugin": "webpack --env entry='ls/plugin' --mode production",
     "tsc-compile": "tsc -p ./",
-    "test": "node ./out/test/runTest.js",
+    "run-test": "node ./out/test/runTest.js",
+    "test": "yarn run tsc-compile && yarn run run-test",
     "watch": "tsc -watch -p ./"
   },
   "dependencies": {
