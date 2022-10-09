@@ -14,7 +14,7 @@ types.setTypeParser((types as any).builtins.TIMESTAMP || 1114, rawValue);
 types.setTypeParser((types as any).builtins.TIMESTAMPTZ || 1184, rawValue);
 types.setTypeParser((types as any).builtins.DATE || 1082, rawValue);
 
-export default class PostgreSQL extends AbstractDriver<Pool, PoolConfig> implements IConnectionDriver {
+export default class RedshiftDriver extends AbstractDriver<Pool, PoolConfig> implements IConnectionDriver {
   queries = queries;
   public async open() {
     if (this.connection) {
