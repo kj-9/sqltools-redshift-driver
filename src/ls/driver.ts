@@ -16,9 +16,9 @@ import queries from "./queries";
 
 const rawValue = (v: string) => v;
 
-types.setTypeParser((types as any).builtins.TIMESTAMP || 1114, rawValue);
-types.setTypeParser((types as any).builtins.TIMESTAMPTZ || 1184, rawValue);
-types.setTypeParser((types as any).builtins.DATE || 1082, rawValue);
+types.setTypeParser(types.builtins.TIMESTAMP || 1114, rawValue);
+types.setTypeParser(types.builtins.TIMESTAMPTZ || 1184, rawValue);
+types.setTypeParser(types.builtins.DATE || 1082, rawValue);
 
 export default class RedshiftDriver
   extends AbstractDriver<Pool, PoolConfig>

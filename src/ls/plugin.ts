@@ -4,7 +4,7 @@ import { DRIVER_ALIAS } from "./../constants";
 
 const RedshiftDriverPlugin: ILanguageServerPlugin = {
   register(server) {
-    server.getContext().drivers.set(DRIVER_ALIAS.value, RedshiftDriver as any);
+    server.getContext().drivers.set(DRIVER_ALIAS.value, RedshiftDriver);
   },
 };
 
