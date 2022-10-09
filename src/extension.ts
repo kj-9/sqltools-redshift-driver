@@ -63,13 +63,6 @@ export async function activate(
        * Below is the exmaple for SQLite, where we save the DB path relative to workspace
        * and later we transform it back to absolute before editing
        */
-      // if (path.isAbsolute(connInfo.database)) {
-      //   const databaseUri = Uri.file(connInfo.database);
-      //   const dbWorkspace = workspace.getWorkspaceFolder(databaseUri);
-      //   if (dbWorkspace) {
-      //     connInfo.database = `\$\{workspaceFolder:${dbWorkspace.name}\}/${workspace.asRelativePath(connInfo.database, false)}`;
-      //   }
-      // }
       const propsToRemove = ["connectionMethod", "id", "usePassword"];
       if (connInfo.usePassword) {
         if (connInfo.usePassword.toString().toLowerCase().includes("ask")) {
@@ -112,12 +105,6 @@ export async function activate(
        * Below is the exmaple for SQLite, where we use relative path to save,
        * but we transform to asolute before editing
        */
-      // if (!path.isAbsolute(connInfo.database) && /\$\{workspaceFolder:(.+)}/g.test(connInfo.database)) {
-      //   const workspaceName = connInfo.database.match(/\$\{workspaceFolder:(.+)}/)[1];
-      //   const dbWorkspace = workspace.workspaceFolders.find(w => w.name === workspaceName);
-      //   if (dbWorkspace)
-      //     connInfo.database = path.resolve(dbWorkspace.uri.fsPath, connInfo.database.replace(/\$\{workspaceFolder:(.+)}/g, './'));
-      // }
       const formData: typeof connInfo = {
         ...connInfo,
         connectionMethod: "Server and Port",
