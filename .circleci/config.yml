@@ -16,7 +16,7 @@ workflows:
           # This is the node version to use for the `cimg/node` tag
           # Relevant tags can be found on the CircleCI Developer Hub
           # https://circleci.com/developer/images/image/cimg/node
-          version: "18.7.0-browsers"
+          version: "16.17.1-browsers"
           # If you are using yarn, change the line below from "npm" to "yarn"
           pkg-manager: yarn
           test-results-for: mocha
