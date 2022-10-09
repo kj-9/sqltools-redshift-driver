@@ -16,7 +16,6 @@ class QueryParser {
     const flag = true;
     let restOfQuery: string;
     while (flag) {
-
       if (restOfQuery == null) {
         restOfQuery = query;
       }

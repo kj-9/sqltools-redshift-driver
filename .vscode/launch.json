@@ -1,56 +1,45 @@
 {
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "Run Driver Extension",
-            "type": "extensionHost",
-            "request": "launch",
-            "args": [
-                "--extensionDevelopmentPath=${workspaceFolder}"
-            ],
-            "outFiles": [
-                "${workspaceFolder}/out/**/*.js"
-            ],
-            "preLaunchTask": "${defaultBuildTask}",
-            "env": {
-                "SQLTOOLS_DEBUG_PORT_LS": "6099"
-            }
-        },
-        {
-            "name": "Attach SQLTools LS",
-            "type": "node",
-            "request": "attach",
-            "port": 6099,
-            "restart": true,
-            "sourceMaps": true,
-            "timeout": 100000,
-            "outFiles": [
-                "${workspaceFolder}/out/**/*.js"
-            ],
-            "skipFiles": [
-                "<node_internals>/**"
-            ],
-        },
-        {
-			"name": "Run Extension Tests",
-			"type": "extensionHost",
-			"request": "launch",
-			"runtimeExecutable": "${execPath}",
-			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}",
-				"--extensionTestsPath=${workspaceFolder}/out/test/suite/index"
-			],
-			"outFiles": ["${workspaceFolder}/out/test/**/*.js"],
-            "preLaunchTask": "${defaultBuildTask}",
-		}
-    ],
-    "compounds": [
-        {
-            "name": "Run Driver Ext and Attach LS",
-            "configurations": [
-                "Run Driver Extension",
-                "Attach SQLTools LS"
-            ]
-        }
-    ]
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Driver Extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
+      "outFiles": ["${workspaceFolder}/out/**/*.js"],
+      "preLaunchTask": "${defaultBuildTask}",
+      "env": {
+        "SQLTOOLS_DEBUG_PORT_LS": "6099"
+      }
+    },
+    {
+      "name": "Attach SQLTools LS",
+      "type": "node",
+      "request": "attach",
+      "port": 6099,
+      "restart": true,
+      "sourceMaps": true,
+      "timeout": 100000,
+      "outFiles": ["${workspaceFolder}/out/**/*.js"],
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Run Extension Tests",
+      "type": "extensionHost",
+      "request": "launch",
+      "runtimeExecutable": "${execPath}",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}",
+        "--extensionTestsPath=${workspaceFolder}/out/test/suite/index"
+      ],
+      "outFiles": ["${workspaceFolder}/out/test/**/*.js"],
+      "preLaunchTask": "${defaultBuildTask}"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Run Driver Ext and Attach LS",
+      "configurations": ["Run Driver Extension", "Attach SQLTools LS"]
+    }
+  ]
 }

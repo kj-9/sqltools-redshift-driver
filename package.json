@@ -43,7 +43,7 @@
     "build:extension": "webpack --env entry='extension' --mode production",
     "build:plugin": "webpack --env entry='ls/plugin' --mode production",
     "clean": "rimraf -rf out *.vsix",
-    "lint-fmt": "eslint --cache --fix src/ && prettier --check --write src/",
+    "lint-fmt": "eslint --cache --fix src/ test/ && prettier --check --write src/ test/",
     "run-test": "node ./out/test/runTest.js",
     "tsc-compile": "tsc -p ./",
     "tsc-watch": "tsc -watch -p ./",

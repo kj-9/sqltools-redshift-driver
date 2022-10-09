@@ -15,11 +15,7 @@
     "usePassword": {
       "title": "Use password",
       "type": "string",
-      "enum": [
-        "Ask on connect",
-        "Use empty password",
-        "Save password"
-      ],
+      "enum": ["Ask on connect", "Use empty password", "Save password"],
       "default": "Ask on connect"
     },
     "password": {
@@ -33,11 +29,7 @@
       "title": "Connect using",
       "type": "string",
       "minLength": 1,
-      "enum": [
-        "Server and Port",
-        "Socket File",
-        "Connection String"
-      ],
+      "enum": ["Server and Port", "Socket File", "Connection String"],
       "default": "Server and Port"
     },
     "connectionTimeout": {
@@ -68,10 +60,7 @@
         "enableSsl": {
           "type": "string",
           "title": "SSL",
-          "enum": [
-            "Enabled",
-            "Disabled"
-          ],
+          "enum": ["Enabled", "Disabled"],
           "default": "Disabled"
         }
       },
@@ -81,18 +70,14 @@
             {
               "properties": {
                 "enableSsl": {
-                  "enum": [
-                    "Disabled"
-                  ]
+                  "enum": ["Disabled"]
                 }
               }
             },
             {
               "properties": {
                 "enableSsl": {
-                  "enum": [
-                    "Enabled"
-                  ]
+                  "enum": ["Enabled"]
                 },
                 "ssl": {
                   "type": "object",
@@ -135,9 +120,7 @@
         {
           "properties": {
             "connectionMethod": {
-              "enum": [
-                "Server and Port"
-              ]
+              "enum": ["Server and Port"]
             },
             "server": {
               "title": "Server Address",
@@ -161,19 +144,12 @@
               "$ref": "#/definitions/usePassword"
             }
           },
-          "required": [
-            "server",
-            "port",
-            "database",
-            "username"
-          ]
+          "required": ["server", "port", "database", "username"]
         },
         {
           "properties": {
             "connectionMethod": {
-              "enum": [
-                "Socket File"
-              ]
+              "enum": ["Socket File"]
             },
             "socketPath": {
               "title": "Socket file path",
@@ -190,18 +166,12 @@
               "$ref": "#/definitions/usePassword"
             }
           },
-          "required": [
-            "socketPath",
-            "database",
-            "username"
-          ]
+          "required": ["socketPath", "database", "username"]
         },
         {
           "properties": {
             "connectionMethod": {
-              "enum": [
-                "Connection String"
-              ]
+              "enum": ["Connection String"]
             },
             "connectString": {
               "title": "Connection String",
@@ -209,9 +179,7 @@
               "minLength": 1
             }
           },
-          "required": [
-            "connectString"
-          ]
+          "required": ["connectString"]
         }
       ]
     },
@@ -220,9 +188,7 @@
         {
           "properties": {
             "usePassword": {
-              "enum": [
-                "Ask on connect"
-              ]
+              "enum": ["Ask on connect"]
             },
             "askForPassword": {
               "type": "boolean",
@@ -233,31 +199,23 @@
         {
           "properties": {
             "usePassword": {
-              "enum": [
-                "Use empty password"
-              ]
+              "enum": ["Use empty password"]
             }
           }
         },
         {
           "properties": {
             "usePassword": {
-              "enum": [
-                "Save password"
-              ]
+              "enum": ["Save password"]
             },
             "password": {
               "$ref": "#/definitions/password"
             }
           },
-          "required": [
-            "password"
-          ]
+          "required": ["password"]
         }
       ]
     }
   },
-  "required": [
-    "connectionMethod"
-  ]
+  "required": ["connectionMethod"]
 }
