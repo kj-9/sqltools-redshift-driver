@@ -1,5 +1,8 @@
 # Change Log
 
+### 0.0.4
+
+- Explicitly unsupport Materialized Views tree. (which showed error messsages)
 
 ### 0.0.3
 
