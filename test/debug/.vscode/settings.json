@@ -1,0 +1,12 @@
+{
+  "sqltools.connections": [
+    {
+      "pgOptions": {
+        "ssl": true
+      },
+      "previewLimit": 50,
+      "driver": "Redshift Driver (Dedicated ver)",
+      "name": "dev"
+    }
+  ]
+}
