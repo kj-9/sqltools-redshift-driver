@@ -121,7 +121,7 @@ export default class RedshiftDriver
         return results;
       })
       .then((results: any[] | any) => {
-        const queries = parse(query.toString(), "pg");
+        const queries = parse(query.toString());
         if (!Array.isArray(results)) {
           results = [results];
         }

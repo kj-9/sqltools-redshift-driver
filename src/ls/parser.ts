@@ -4,13 +4,7 @@
  */
 
 class QueryParser {
-  static parse(
-    query: string,
-    driver: "pg" | "mysql" | "mssql" | "cql" = "mysql"
-  ): Array<string> {
-    if (driver === "mssql") {
-      query = query.replace(/^[ \t]*GO;?[ \t]*$/gim, "");
-    }
+  static parse(query: string): Array<string> {
     const delimiter = ";";
     const queries: Array<string> = [];
     const flag = true;
@@ -21,7 +15,6 @@ class QueryParser {
       }
       const statementAndRest = QueryParser.getStatements(
         restOfQuery,
-        driver,
         delimiter
       );
 
@@ -39,11 +32,7 @@ class QueryParser {
     return queries;
   }
 
-  static getStatements(
-    query: string,
-    driver: string,
-    delimiter: string
-  ): Array<string> {
+  static getStatements(query: string, delimiter: string): Array<string> {
     const charArray: Array<string> = Array.from(query);
     let previousChar: string = null;
     let nextChar: string = null;
@@ -56,7 +45,7 @@ class QueryParser {
 
     let resultQueries: Array<string> = [];
     for (let index = 0; index < charArray.length; index++) {
-      let char = charArray[index];
+      const char = charArray[index];
       if (index > 0) {
         previousChar = charArray[index - 1];
       }
@@ -106,42 +95,16 @@ class QueryParser {
         continue;
       }
 
-      if (
-        char.toLowerCase() == "d" &&
-        isInComment == false &&
-        isInString == false
-      ) {
-        const delimiterResult = QueryParser.getDelimiter(index, query, driver);
-        if (delimiterResult != null) {
-          // it's delimiter
-          const delimiterSymbol: string = delimiterResult[0];
-          const delimiterEndIndex: number = delimiterResult[1];
-          query = query.substring(delimiterEndIndex);
-          resultQueries = QueryParser.getStatements(
-            query,
-            driver,
-            delimiterSymbol
-          );
-          break;
-        }
-      }
-
       if (char == "$" && isInComment == false && isInString == false) {
         const queryUntilTagSymbol = query.substring(index);
         if (isInTag == false) {
-          const tagSymbolResult = QueryParser.getTag(
-            queryUntilTagSymbol,
-            driver
-          );
+          const tagSymbolResult = QueryParser.getTag(queryUntilTagSymbol);
           if (tagSymbolResult != null) {
             isInTag = true;
             tagChar = tagSymbolResult[0];
           }
         } else {
-          const tagSymbolResult = QueryParser.getTag(
-            queryUntilTagSymbol,
-            driver
-          );
+          const tagSymbolResult = QueryParser.getTag(queryUntilTagSymbol);
           if (tagSymbolResult != null) {
             const tagSymbol = tagSymbolResult[0];
             if (tagSymbol == tagChar) {
@@ -149,15 +112,6 @@ class QueryParser {
             }
           }
         }
-      }
-      if (
-        driver === "mssql" &&
-        char.toLowerCase() === "g" &&
-        `${charArray[index + 1] || ""}`.toLowerCase() === "o" &&
-        typeof charArray[index + 2] !== "undefined" &&
-        /go\b/gi.test(`${char}${charArray[index + 1]}${charArray[index + 2]}`)
-      ) {
-        char = `${char}${charArray[index + 1]}`;
       }
 
       // it's a query, continue until you get delimiter hit
@@ -168,12 +122,7 @@ class QueryParser {
         isInComment == false &&
         isInTag == false
       ) {
-        let splittingIndex = index + 1;
-        if (driver === "mssql" && char.toLowerCase() === "go") {
-          splittingIndex = index;
-          resultQueries = QueryParser.getQueryParts(query, splittingIndex, 2);
-          break;
-        }
+        const splittingIndex = index + 1;
         resultQueries = QueryParser.getQueryParts(query, splittingIndex, 0);
         break;
       }
@@ -204,108 +153,18 @@ class QueryParser {
     return result;
   }
 
-  static getDelimiter(
-    index: number,
-    query: string,
-    driver: string
-  ): Array<any> {
-    if (driver == "mysql") {
-      const delimiterKeyword = "delimiter ";
-      const delimiterLength = delimiterKeyword.length;
-      const parsedQueryAfterIndexOriginal = query.substring(index);
-      const indexOfDelimiterKeyword = parsedQueryAfterIndexOriginal
-        .toLowerCase()
-        .indexOf(delimiterKeyword);
-      if (indexOfDelimiterKeyword == 0) {
-        let parsedQueryAfterIndex = query.substring(index);
-        let indexOfNewLine = parsedQueryAfterIndex.indexOf("\n");
-        if (indexOfNewLine == -1) {
-          indexOfNewLine = query.length;
-        }
-        parsedQueryAfterIndex = parsedQueryAfterIndex.substring(
-          0,
-          indexOfNewLine
-        );
-        parsedQueryAfterIndex =
-          parsedQueryAfterIndex.substring(delimiterLength);
-        let delimiterSymbol = parsedQueryAfterIndex.trim();
-        delimiterSymbol = QueryParser.clearTextUntilComment(delimiterSymbol);
-        if (delimiterSymbol != null) {
-          delimiterSymbol = delimiterSymbol.trim();
-          const delimiterSymbolEndIndex =
-            parsedQueryAfterIndexOriginal.indexOf(delimiterSymbol) +
-            index +
-            delimiterSymbol.length;
-          const result: Array<any> = [];
-          result.push(delimiterSymbol);
-          result.push(delimiterSymbolEndIndex);
-          return result;
-        } else {
-          return null;
-        }
-      } else {
-        return null;
-      }
+  static getTag(query: string): Array<any> {
+    const matchTag = query.match(/^(\$[a-zA-Z]*\$)/i);
+    if (matchTag != null && matchTag.length > 1) {
+      const result: Array<any> = [];
+      const tagSymbol = matchTag[1].trim();
+      const indexOfCmd = query.indexOf(tagSymbol);
+      result.push(tagSymbol);
+      result.push(indexOfCmd);
+      return result;
+    } else {
+      return null;
     }
-  }
-
-  static getTag(query: string, driver: string): Array<any> {
-    if (driver == "pg") {
-      const matchTag = query.match(/^(\$[a-zA-Z]*\$)/i);
-      if (matchTag != null && matchTag.length > 1) {
-        const result: Array<any> = [];
-        const tagSymbol = matchTag[1].trim();
-        const indexOfCmd = query.indexOf(tagSymbol);
-        result.push(tagSymbol);
-        result.push(indexOfCmd);
-        return result;
-      } else {
-        return null;
-      }
-    }
-  }
-
-  static isGoDelimiter(driver: string, query: string, index: number): boolean {
-    if (driver == "mssql") {
-      const match = /(?:\bgo\b\s*)/i.exec(query);
-      if (match != null && match.index == index) {
-        return true;
-      } else {
-        return false;
-      }
-    }
-  }
-
-  static clearTextUntilComment(text: string): string {
-    // var previousChar: string = null;
-    let nextChar: string = null;
-    const charArray: Array<string> = Array.from(text);
-    let clearedText: string = null;
-    for (let index = 0; index < charArray.length; index++) {
-      const char = charArray[index];
-      // if (index > 0) {
-      //   previousChar = charArray[index - 1];
-      // }
-
-      if (index < charArray.length) {
-        nextChar = charArray[index + 1];
-      }
-
-      if (
-        (char == "#" && nextChar == " ") ||
-        (char == "-" && nextChar == "-") ||
-        (char == "/" && nextChar == "*")
-      ) {
-        break;
-      } else {
-        if (clearedText == null) {
-          clearedText = "";
-        }
-        clearedText += char;
-      }
-    }
-
-    return clearedText;
   }
 }
 
