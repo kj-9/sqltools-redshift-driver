@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Run Driver Extension",
+      "name": "Launch Driver Extension",
       "type": "extensionHost",
       "request": "launch",
       "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
@@ -24,7 +24,7 @@
       "skipFiles": ["<node_internals>/**"]
     },
     {
-      "name": "Run Extension Tests",
+      "name": "Launch Driver Extension and Run Tests",
       "type": "extensionHost",
       "request": "launch",
       "runtimeExecutable": "${execPath}",
@@ -38,8 +38,8 @@
   ],
   "compounds": [
     {
-      "name": "Run Driver Ext and Attach LS",
-      "configurations": ["Run Driver Extension", "Attach SQLTools LS"]
+      "name": "Launch Driver Extension and Attach LS",
+      "configurations": ["Launch Driver Extension", "Attach SQLTools LS"]
     }
   ]
 }
