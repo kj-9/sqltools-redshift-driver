@@ -193,34 +193,19 @@ const fetchViews: IBaseQueries["fetchTables"] = fetchTablesAndViews(
   "VIEW"
 );
 
+/*  
+Currently not supported.
+STV_MV_INFO seems to have bug which cannot be shown by users
+*/
 const fetchMaterializedViews: IBaseQueries["fetchTables"] = queryFactory`
 SELECT
   '${ContextValue.MATERIALIZED_VIEW}' as type,
   (current_database())::information_schema.sql_identifier AS database,
-  (nc.nspname)::information_schema.sql_identifier AS schema,
-  (c.relname)::information_schema.sql_identifier AS label,
+  (current_schema())::information_schema.sql_identifier AS schema,
+  ('Materialized Views are shown in Views tree.')::information_schema.sql_identifier AS label,
   'view' AS "iconName",
   '${ContextValue.NO_CHILD}' as "childType"
-FROM pg_namespace nc,
-  pg_class c
-WHERE
-  nc.nspname = '${(p) => p.schema}'
-  AND (
-    (c.relnamespace = nc.oid)
-    AND (c.relkind = 'm'::"char")
-    AND (NOT pg_is_other_temp_schema(nc.oid))
-    AND (
-      pg_has_role(c.relowner, 'USAGE'::text)
-      OR has_table_privilege(
-        c.oid,
-        'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER'::text
-      )
-      OR has_any_column_privilege(
-        c.oid,
-        'SELECT, INSERT, UPDATE, REFERENCES'::text
-      )
-    )
-  );
+;
 `;
 
 const fetchDatabases: IBaseQueries["fetchDatabases"] = queryFactory`
