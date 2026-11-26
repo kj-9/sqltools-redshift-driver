@@ -11,3 +11,7 @@ tsconfig.json
 webpack.config.js
 **/*.map
 **/*.ts
+**/env.ini
+**/cpu-features/build/**/*.node
+**/ssh2/lib/protocol/crypto/build/**/*.node
+**/ssh2/test/**

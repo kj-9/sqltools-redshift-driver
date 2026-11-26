@@ -1,5 +1,10 @@
 # Change Log
 
+### 0.0.5
+
+- Exclude local `env.ini` files from extension packages.
+- Update the SQLTools driver libraries.
+
 ### 0.0.4
 
 - Explicitly unsupport Materialized Views tree. (which showed error messsages)
